@@ -6,12 +6,23 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, Search, Loader2, RefreshCw, ChevronRight, Download, Clock, ArrowLeft } from "lucide-react"
+import {
+  AlertCircle,
+  Search,
+  Loader2,
+  RefreshCw,
+  ChevronRight,
+  Download,
+  Clock,
+  ArrowLeft,
+  AlertTriangle,
+} from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { useSession } from "@/components/session-provider"
 import { Progress } from "@/components/ui/progress"
+import { sanitizeInput, validateSearchQuery } from "@/lib/security"
 
 const SEARCH_TYPES = [
   { value: "email", label: "Email", estimatedTime: 25 },
@@ -21,7 +32,11 @@ const SEARCH_TYPES = [
   { value: "ip", label: "IP Address", estimatedTime: 30 },
 ]
 
-export function SearchTool() {
+interface SearchToolProps {
+  planType?: string
+}
+
+export function SearchTool({ planType = "standard" }: SearchToolProps) {
   const [searchType, setSearchType] = useState("email")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any>(null)
@@ -34,6 +49,10 @@ export function SearchTool() {
   const [progress, setProgress] = useState(0)
   const [estimatedSeconds, setEstimatedSeconds] = useState(5)
   const [remainingTime, setRemainingTime] = useState("")
+
+  // Security-related state
+  const [lastSearchTime, setLastSearchTime] = useState(0)
+  const [searchCount, setSearchCount] = useState(0)
 
   // Update estimated time based on search type
   useEffect(() => {
@@ -70,11 +89,37 @@ export function SearchTool() {
   }, [loading, estimatedSeconds])
 
   const handleSearch = async () => {
+    // Validate input
     if (!query.trim()) {
       setError("Please enter a search query")
       return
     }
 
+    // Validate query format
+    const validatedQuery = validateSearchQuery(searchType, query.trim())
+    if (!validatedQuery) {
+      setError(`Invalid format for ${searchType} search. Please check your input.`)
+      return
+    }
+
+    // Basic rate limiting on client side
+    const now = Date.now()
+    if (now - lastSearchTime < 2000) {
+      // 2 seconds between searches
+      setError("Please wait a moment before searching again")
+      return
+    }
+
+    // Limit consecutive searches
+    if (searchCount >= 10) {
+      // Reset after 1 minute
+      setTimeout(() => setSearchCount(0), 60000)
+      setError("You've made too many searches in a short time. Please wait a minute.")
+      return
+    }
+
+    setLastSearchTime(now)
+    setSearchCount((prev) => prev + 1)
     setError(null)
     setLoading(true)
     setProgress(0)
@@ -85,7 +130,7 @@ export function SearchTool() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ type: searchType, query: query.trim() }),
+        body: JSON.stringify({ type: searchType, query: validatedQuery }),
       })
 
       const data = await response.json()
@@ -94,7 +139,13 @@ export function SearchTool() {
         if (response.status === 401) {
           throw new Error("Authentication error. Please try refreshing your session.")
         } else if (response.status === 403) {
-          throw new Error("Your API key doesn't have permission to perform this search.")
+          if (data.error && data.error.includes("limit")) {
+            throw new Error(data.error)
+          } else {
+            throw new Error("Your API key doesn't have permission to perform this search.")
+          }
+        } else if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again later.")
         } else {
           throw new Error(data.error || "Failed to perform search")
         }
@@ -134,7 +185,7 @@ export function SearchTool() {
               <Badge variant="outline" className="bg-emerald-900/30 text-emerald-300 border-emerald-800">
                 {searchType.toUpperCase()}
               </Badge>
-              <h3 className="text-lg font-medium">{query}</h3>
+              <h3 className="text-lg font-medium">{sanitizeInput(query)}</h3>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Searched at {new Date(results.timestamp).toLocaleString()}
@@ -145,7 +196,16 @@ export function SearchTool() {
             size="sm"
             onClick={() => {
               if (results) {
-                const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" })
+                // Create a sanitized version of results for export
+                const exportData = {
+                  credits: results.credits,
+                  scan_type: results.scan_type,
+                  query: results.query,
+                  timestamp: results.timestamp,
+                  csint: results.csint,
+                }
+
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement("a")
                 a.href = url
@@ -153,6 +213,7 @@ export function SearchTool() {
                 document.body.appendChild(a)
                 a.click()
                 document.body.removeChild(a)
+                URL.revokeObjectURL(url) // Clean up
               }
             }}
             className="h-8"
@@ -189,11 +250,31 @@ export function SearchTool() {
           <Card className="bg-gray-900 border-gray-800 shadow-xl">
             <CardContent className="p-4 space-y-4">
               {error && (
-                <Alert variant="destructive" className="bg-red-900/30 border-red-800 text-red-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
+                <Alert
+                  variant="destructive"
+                  className={
+                    error.includes("limit")
+                      ? "bg-yellow-900/30 border-yellow-800 text-yellow-200"
+                      : "bg-red-900/30 border-red-800 text-red-200"
+                  }
+                >
+                  {error.includes("limit") ? (
+                    <AlertTriangle className="h-4 w-4" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4" />
+                  )}
+                  <AlertTitle>{error.includes("limit") ? "Search Limit Reached" : "Error"}</AlertTitle>
                   <AlertDescription className="flex flex-col gap-2">
                     <p>{error}</p>
+                    {error.includes("limit") && (
+                      <div className="mt-2 text-sm">
+                        <p>
+                          Your current plan ({planType}) allows{" "}
+                          {error.includes("search") ? error.match(/$$(\d+)$$/)?.[1] : ""} searches.
+                        </p>
+                        <p className="mt-1">Consider upgrading your plan for more searches.</p>
+                      </div>
+                    )}
                     {(error.includes("Authentication") || error.includes("session")) && (
                       <Button
                         variant="outline"
@@ -238,6 +319,7 @@ export function SearchTool() {
                         handleSearch()
                       }
                     }}
+                    maxLength={100} // Limit input length for security
                   />
                   <Button
                     onClick={handleSearch}

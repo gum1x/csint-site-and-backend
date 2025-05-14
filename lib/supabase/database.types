@@ -1,173 +1,46 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export interface Database {
   public: {
     Tables: {
       profiles: {
         Row: {
-          id: string;
-          created_at: string;
-          updated_at: string;
-          email: string;
-          full_name: string | null;
-          avatar_url: string | null;
-          last_login: string | null;
-        };
+          id: string
+          created_at: string
+          updated_at: string
+          email: string
+          full_name: string | null
+          avatar_url: string | null
+          last_login: string | null
+        }
         Insert: {
-          id: string;
-          created_at?: string;
-          updated_at?: string;
-          email: string;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          last_login?: string | null;
-        };
+          id: string
+          created_at?: string
+          updated_at?: string
+          email: string
+          full_name?: string | null
+          avatar_url?: string | null
+          last_login?: string | null
+        }
         Update: {
-          id?: string;
-          created_at?: string;
-          updated_at?: string;
-          email?: string;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          last_login?: string | null;
-        };
-      };
-      api_keys: {
-        Row: {
-          id: string;
-          key: string;
-          email: string | null;
-          plan_type: string;
-          created_at: string;
-          expires_at: string;
-          is_active: boolean;
-          last_used: string | null;
-          created_by: string;
-          redeemed_at: string | null;
-          duration_days: number | null;
-        };
-        Insert: {
-          key: string;
-          plan_type: string;
-          expires_at: string;
-          is_active: boolean;
-          created_by: string;
-          email?: string | null;
-          last_used?: string | null;
-          redeemed_at?: string | null;
-          duration_days?: number | null;
-          id?: string;
-          created_at?: string;
-        };
-        Update: {
-          key?: string;
-          plan_type?: string;
-          expires_at?: string;
-          is_active?: boolean;
-          created_by?: string;
-          email?: string | null;
-          last_used?: string | null;
-          redeemed_at?: string | null;
-          duration_days?: number | null;
-          id?: string;
-          created_at?: string;
-        };
-      };
-      admin_sessions: {
-        Row: {
-          username: string;
-          session_token: string;
-          expires_at: string;
-        };
-        Insert: {
-          username: string;
-          session_token: string;
-          expires_at: string;
-        };
-        Update: {
-          username?: string;
-          session_token?: string;
-          expires_at?: string;
-        };
-      };
-      user_sessions: {
-        Row: {
-          email: string;
-          api_key_id: string;
-          session_token: string;
-          expires_at: string;
-        };
-        Insert: {
-          email: string;
-          api_key_id: string;
-          session_token: string;
-          expires_at: string;
-        };
-        Update: {
-          email?: string;
-          api_key_id?: string;
-          session_token?: string;
-          expires_at?: string;
-        };
-      };
-      search_logs: {
-        Row: {
-          id: string;
-          user_id: string;
-          search_type: string;
-          query: string;
-          created_at: string;
-        };
-        Insert: {
-          user_id: string;
-          search_type: string;
-          query: string;
-          id?: string;
-          created_at?: string;
-        };
-        Update: {
-          user_id?: string;
-          search_type?: string;
-          query?: string;
-          id?: string;
-          created_at?: string;
-        };
-      };
-      search_count: {
-        Row: {
-          email: string;
-          search_count: number;
-          api_call_count: number;
-          search_limit: number | null;
-          api_call_limit: number | null;
-          updated_at: string | null;
-        };
-        Insert: {
-          email: string;
-          search_count: number;
-          api_call_count: number;
-          search_limit?: number | null;
-          api_call_limit?: number | null;
-          updated_at?: string | null;
-        };
-        Update: {
-          email?: string;
-          search_count?: number;
-          api_call_count?: number;
-          search_limit?: number | null;
-          api_call_limit?: number | null;
-          updated_at?: string | null;
-        };
-      };
-    };
+          id?: string
+          created_at?: string
+          updated_at?: string
+          email?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          last_login?: string | null
+        }
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Enums: {
-      [_ in never]: never;
-    };
-  };
+      [_ in never]: never
+    }
+  }
 }

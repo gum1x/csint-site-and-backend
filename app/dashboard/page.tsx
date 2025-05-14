@@ -9,6 +9,22 @@ import { KeyIcon, SearchIcon, UserIcon, DatabaseIcon, TerminalIcon, LogOutIcon, 
 import Link from "next/link"
 import { createClient } from "@supabase/supabase-js"
 
+// Define search limits by plan type
+const PLAN_SEARCH_LIMITS = {
+  basic: 50,
+  standard: 100,
+  premium: 200,
+  enterprise: 1000,
+}
+
+// Define API call limits by plan type
+const PLAN_API_LIMITS = {
+  basic: 200,
+  standard: 500,
+  premium: 1000,
+  enterprise: 5000,
+}
+
 // Initialize Supabase client with admin privileges
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -52,6 +68,11 @@ export default async function Dashboard() {
       .single()
 
     const hasActiveKey = !!apiKeys
+    const planType = apiKeys?.plan_type || "standard"
+
+    // Get the search and API limits based on plan type
+    const searchLimit = PLAN_SEARCH_LIMITS[planType as keyof typeof PLAN_SEARCH_LIMITS] || 100
+    const apiLimit = PLAN_API_LIMITS[planType as keyof typeof PLAN_API_LIMITS] || 500
 
     // Get the user's search count
     const { data: searchCount } = await supabaseAdmin
@@ -64,8 +85,8 @@ export default async function Dashboard() {
     const searchStats = searchCount || {
       search_count: 0,
       api_call_count: 0,
-      search_limit: 100,
-      api_call_limit: 500,
+      search_limit: searchLimit,
+      api_call_limit: apiLimit,
     }
 
     // Inside the Dashboard component, add this helper function:
@@ -171,14 +192,14 @@ export default async function Dashboard() {
                       <div className="flex justify-between items-center text-sm">
                         <span>Searches</span>
                         <span className="font-mono">
-                          {searchStats.search_count}/{searchStats.search_limit}
+                          {searchStats.search_count}/{searchLimit}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-cyan-600"
                           style={{
-                            width: `${Math.min(100, (searchStats.search_count / searchStats.search_limit) * 100)}%`,
+                            width: `${Math.min(100, (searchStats.search_count / searchLimit) * 100)}%`,
                           }}
                         ></div>
                       </div>
@@ -188,14 +209,14 @@ export default async function Dashboard() {
                       <div className="flex justify-between items-center text-sm">
                         <span>API Calls</span>
                         <span className="font-mono">
-                          {searchStats.api_call_count}/{searchStats.api_call_limit}
+                          {searchStats.api_call_count}/{apiLimit}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-cyan-600"
                           style={{
-                            width: `${Math.min(100, (searchStats.api_call_count / searchStats.api_call_limit) * 100)}%`,
+                            width: `${Math.min(100, (searchStats.api_call_count / apiLimit) * 100)}%`,
                           }}
                         ></div>
                       </div>
@@ -232,7 +253,7 @@ export default async function Dashboard() {
 
                 <TabsContent value="search" className="mt-4">
                   {hasActiveKey ? (
-                    <SearchTool />
+                    <SearchTool planType={planType} />
                   ) : (
                     <Card className="bg-gray-900 border-gray-800 shadow-xl">
                       <CardHeader>
@@ -343,6 +364,25 @@ export default async function Dashboard() {
                                 <div className="space-y-1">
                                   <p className="text-xs text-gray-500">VALIDITY</p>
                                   <p className="text-sm">{formatKeyValidity(apiKeys)}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 p-3 bg-gray-800 rounded-md">
+                                <div className="flex justify-between items-center mb-2">
+                                  <h4 className="text-sm font-medium">Plan Limits</h4>
+                                  <Badge variant="outline" className="bg-gray-700/50 text-gray-300 border-gray-600">
+                                    {planType.toUpperCase()}
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-gray-500">SEARCH LIMIT</p>
+                                    <p className="text-sm">{searchLimit} searches</p>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-gray-500">API CALL LIMIT</p>
+                                    <p className="text-sm">{apiLimit} calls</p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
