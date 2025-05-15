@@ -1,5 +1,3 @@
-"use client"
-
 import { Badge } from "@/components/ui/badge"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -10,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { KeyIcon, SearchIcon, UserIcon, TerminalIcon, LogOutIcon, BarChartIcon } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@supabase/supabase-js"
-import { useEffect, useState } from "react"
 
 // Define search limits by plan type
 const PLAN_SEARCH_LIMITS = {
@@ -92,50 +89,7 @@ export default async function Dashboard() {
       api_call_limit: apiLimit,
     }
 
-    const [usageData, setUsageData] = useState(searchStats)
-    const [isLoading, setIsLoading] = useState(false)
-    const [fetchError, setFetchError] = useState<string | null>(null)
-
-    const fetchUsageData = async () => {
-      setIsLoading(true)
-      try {
-        // Fetch the latest usage data
-        const response = await fetch("/api/usage/stats", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch usage data")
-        }
-
-        const data = await response.json()
-        setUsageData(data)
-      } catch (error) {
-        console.error("Error fetching usage data:", error)
-        setFetchError("Failed to load usage statistics")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    // Add this near other useEffect hooks
-    useEffect(() => {
-      // Refresh the usage data immediately on component mount
-      fetchUsageData()
-
-      // Set up real-time updates for usage statistics
-      const intervalId = setInterval(() => {
-        // Refresh the usage data
-        fetchUsageData()
-      }, 30000) // Update every 30 seconds
-
-      return () => clearInterval(intervalId) // Clean up on unmount
-    }, [])
-
-    // Inside the Dashboard component, add this helper function:
+    // Helper function to format key validity
     const formatKeyValidity = (key: any) => {
       if (!key.redeemed_at) {
         return `Valid for ${key.duration_days || 30} days after first use`
@@ -238,14 +192,14 @@ export default async function Dashboard() {
                       <div className="flex justify-between items-center text-sm">
                         <span>Searches</span>
                         <span className="font-mono">
-                          {usageData.search_count}/{searchLimit}
+                          {searchStats.search_count}/{searchLimit}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-cyan-600"
                           style={{
-                            width: `${Math.min(100, (usageData.search_count / searchLimit) * 100)}%`,
+                            width: `${Math.min(100, (searchStats.search_count / searchLimit) * 100)}%`,
                           }}
                         ></div>
                       </div>
@@ -255,20 +209,18 @@ export default async function Dashboard() {
                       <div className="flex justify-between items-center text-sm">
                         <span>API Calls</span>
                         <span className="font-mono">
-                          {usageData.api_call_count}/{apiLimit}
+                          {searchStats.api_call_count}/{apiLimit}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-cyan-600"
                           style={{
-                            width: `${Math.min(100, (usageData.api_call_count / apiLimit) * 100)}%`,
+                            width: `${Math.min(100, (searchStats.api_call_count / apiLimit) * 100)}%`,
                           }}
                         ></div>
                       </div>
                     </div>
-
-                    {/* Remove the 'View All Data' option */}
                   </div>
                 </CardContent>
               </Card>
