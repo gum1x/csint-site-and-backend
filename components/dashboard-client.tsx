@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { KeyIcon, SearchIcon, UserIcon, TerminalIcon, LogOutIcon, BarChartIcon } from "lucide-react"
-import Link from "next/link"
 import { useState, useEffect } from "react"
 
 interface DashboardClientProps {
@@ -230,14 +229,7 @@ export function DashboardClient({
                       <CardTitle>No Active API Key</CardTitle>
                       <CardDescription>You need an active API key to use the search tool</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <Button
-                        asChild
-                        className="bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700"
-                      >
-                        <Link href="?tab=api-keys">Get API Key</Link>
-                      </Button>
-                    </CardContent>
+                    <CardContent></CardContent>
                   </Card>
                 )}
               </TabsContent>
@@ -276,15 +268,6 @@ export function DashboardClient({
                             {new Date(session.expires_at).toLocaleString()}
                           </div>
                         </div>
-                      </div>
-
-                      <div className="pt-4 flex flex-col md:flex-row gap-4">
-                        <Button variant="outline" className="border-gray-700 hover:bg-gray-800">
-                          Update Profile
-                        </Button>
-                        <Button variant="outline" className="border-gray-700 hover:bg-gray-800">
-                          Change Password
-                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -357,14 +340,6 @@ export function DashboardClient({
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex flex-col md:flex-row gap-4">
-                          <Button variant="outline" className="border-gray-700 hover:bg-gray-800">
-                            <KeyIcon className="h-4 w-4 mr-2" />
-                            Manage Keys
-                          </Button>
-                          <Button variant="destructive">Request New Key</Button>
-                        </div>
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -375,15 +350,6 @@ export function DashboardClient({
                             You don't have any active API keys. Contact your administrator or request a new key to
                             access CSINT Network services.
                           </p>
-                        </div>
-
-                        <div className="flex justify-center">
-                          <Button
-                            asChild
-                            className="bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700"
-                          >
-                            <Link href="/admin">Request API Key</Link>
-                          </Button>
                         </div>
                       </div>
                     )}
