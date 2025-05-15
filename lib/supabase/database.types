@@ -32,6 +32,121 @@ export interface Database {
           last_login?: string | null
         }
       }
+      api_keys: {
+        Row: {
+          id: string
+          key: string
+          email: string | null
+          plan_type: string
+          created_at: string
+          expires_at: string
+          is_active: boolean
+          last_used: string | null
+          created_by: string
+          redeemed_at: string | null
+          duration_days: number | null
+        }
+        Insert: {
+          key: string
+          plan_type: string
+          expires_at: string
+          created_by: string
+          is_active?: boolean
+          email?: string | null
+          last_used?: string | null
+          redeemed_at?: string | null
+          duration_days?: number | null
+        }
+        Update: {
+          is_active?: boolean
+          last_used?: string | null
+          email?: string | null
+          expires_at?: string
+          redeemed_at?: string | null
+        }
+      }
+      user_sessions: {
+        Row: {
+          id: string
+          email: string
+          api_key_id: string
+          session_token: string
+          expires_at: string
+        }
+        Insert: {
+          email: string
+          api_key_id: string
+          session_token: string
+          expires_at: string
+        }
+        Update: {
+          session_token?: string
+          expires_at?: string
+        }
+      }
+      admin_sessions: {
+        Row: {
+          id: string
+          username: string
+          session_token: string
+          expires_at: string
+        }
+        Insert: {
+          username: string
+          session_token: string
+          expires_at: string
+        }
+        Update: {
+          session_token?: string
+          expires_at?: string
+        }
+      }
+      search_logs: {
+        Row: {
+          id: string
+          user_id: string
+          search_type: string
+          query: string
+          date: string
+        }
+        Insert: {
+          user_id: string
+          search_type: string
+          query: string
+          date: string
+        }
+        Update: {
+          search_type?: string
+          query?: string
+        }
+      }
+      search_count: {
+        Row: {
+          id: string
+          email: string
+          search_count: number
+          api_call_count: number
+          search_limit: number
+          api_call_limit: number
+          date: string
+          updated_at: string | null
+        }
+        Insert: {
+          email: string
+          search_count: number
+          api_call_count: number
+          search_limit: number
+          api_call_limit: number
+          date: string
+        }
+        Update: {
+          search_count?: number
+          api_call_count?: number
+          search_limit?: number
+          api_call_limit?: number
+          updated_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

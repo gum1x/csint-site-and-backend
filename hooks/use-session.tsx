@@ -57,3 +57,59 @@ export function useSessionRefresh() {
 
   return { refreshSession, isRefreshing, lastRefreshed }
 }
+
+// Add the missing useSession hook
+export function useSession() {
+  const [session, setSession] = useState<{
+    isLoggedIn: boolean
+    email?: string
+    apiKey?: string
+    planType?: string
+    expiresAt?: string
+    loading: boolean
+  }>({
+    isLoggedIn: false,
+    loading: true,
+  })
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch("/api/auth/check", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        const data = await response.json()
+
+        if (response.ok && data.isLoggedIn) {
+          setSession({
+            isLoggedIn: true,
+            email: data.email,
+            apiKey: data.apiKey,
+            planType: data.planType,
+            expiresAt: data.expiresAt,
+            loading: false,
+          })
+        } else {
+          setSession({
+            isLoggedIn: false,
+            loading: false,
+          })
+        }
+      } catch (error) {
+        console.error("Error checking session:", error)
+        setSession({
+          isLoggedIn: false,
+          loading: false,
+        })
+      }
+    }
+
+    checkSession()
+  }, [])
+
+  return session
+}

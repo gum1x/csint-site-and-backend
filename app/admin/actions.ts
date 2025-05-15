@@ -11,8 +11,8 @@ export async function generateNewKey(planType: string, expirationDays: number) {
   try {
     const key = generateApiKey()
 
-    // We'll store duration_days instead of calculating expiration upfront
-    // expires_at will be calculated when the key is redeemed
+    // Create key that remains valid until used
+    // expires_at will be calculated when the key is redeemed with an email
     const { data, error } = await supabaseAdmin
       .from("api_keys")
       .insert({
@@ -21,7 +21,7 @@ export async function generateNewKey(planType: string, expirationDays: number) {
         duration_days: expirationDays,
         is_active: true,
         created_by: "admin", // Required field
-        // Set a far future date as placeholder (will be updated on redemption)
+        // Set a placeholder expiration date (will be updated on redemption)
         expires_at: new Date(2099, 0, 1).toISOString(),
       })
       .select()
@@ -41,6 +41,49 @@ export async function generateNewKey(planType: string, expirationDays: number) {
   } catch (error) {
     console.error("Generate key error:", error)
     return { success: false, error: "Failed to generate key" }
+  }
+}
+
+// New function to generate multiple keys at once
+export async function generateMultipleKeys(planType: string, expirationDays: number, count: number) {
+  try {
+    if (count <= 0 || count > 100) {
+      return { success: false, error: "Count must be between 1 and 100" }
+    }
+
+    const keys = []
+    const keyData = []
+
+    // Generate the specified number of keys
+    for (let i = 0; i < count; i++) {
+      const key = generateApiKey()
+      keys.push(key)
+      keyData.push({
+        key,
+        plan_type: planType,
+        duration_days: expirationDays,
+        is_active: true,
+        created_by: "admin",
+        expires_at: new Date(2099, 0, 1).toISOString(),
+      })
+    }
+
+    // Insert all keys in a single batch
+    const { data, error } = await supabaseAdmin.from("api_keys").insert(keyData).select()
+
+    if (error) {
+      console.error("Error generating multiple keys:", error)
+      return { success: false, error: "Failed to generate keys" }
+    }
+
+    return {
+      success: true,
+      keys,
+      count: keys.length,
+    }
+  } catch (error) {
+    console.error("Generate multiple keys error:", error)
+    return { success: false, error: "Failed to generate keys" }
   }
 }
 

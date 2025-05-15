@@ -156,23 +156,40 @@ export default function AdminDashboard() {
     setTimeout(() => setCopiedKey(""), 2000)
   }
 
-  // Inside the render function, update the formatDate function
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Not yet used"
-    return new Date(dateString).toLocaleString()
-  }
-
-  // Update the getKeyStatus function to consider redemption
+  // Update the getKeyStatus function to consider redemption and email connection
   const getKeyStatus = (key: ApiKey) => {
     if (!key.is_active) return "inactive"
 
-    // If not redeemed yet, show as "unused"
-    if (!key.redeemed_at) return "unused"
+    // If not connected to an email yet, show as "unused"
+    if (!key.email) return "unused"
+
+    // If email is connected but not yet redeemed (should be rare but possible)
+    if (key.email && !key.redeemed_at) return "pending"
 
     const now = new Date()
     const expiresAt = new Date(key.expires_at)
     if (now >= expiresAt) return "expired"
     return "active"
+  }
+
+  // Update the formatDate function to show duration information properly
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not yet used"
+    return new Date(dateString).toLocaleString()
+  }
+
+  // And update the key validity display to clearly show timer status
+  const formatKeyValidity = (key: ApiKey) => {
+    if (!key.email) {
+      return `Will be valid for ${key.duration_days || 30} days after first use`
+    }
+
+    if (key.email && !key.redeemed_at) {
+      return `Ready to be activated by ${key.email}`
+    }
+
+    // For active keys with expiration date
+    return `Expires: ${formatDate(key.expires_at)}`
   }
 
   const getActiveKeysCount = () => {

@@ -140,14 +140,14 @@ export async function verifyApiKey(key: string, email: string) {
     }
 
     // Check if this is the first time the key is being used (redemption)
-    if (!data.redeemed_at) {
-      console.log("First time key usage - redeeming key")
+    if (!data.email) {
+      console.log("First time key usage - activating key and connecting email")
 
       // Calculate the actual expiration date based on duration_days
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + (data.duration_days || 30))
 
-      // Update the key with redemption info and actual expiration
+      // Update the key with email and redemption info and actual expiration
       const { error: updateError } = await supabaseAdmin
         .from("api_keys")
         .update({
@@ -184,12 +184,6 @@ export async function verifyApiKey(key: string, email: string) {
     if (data.email && data.email !== email) {
       console.log("Email mismatch for API key")
       return null
-    }
-
-    // If email is not yet associated with this key, update it
-    if (!data.email) {
-      console.log("Associating email with API key")
-      await supabaseAdmin.from("api_keys").update({ email }).eq("id", data.id)
     }
 
     // Update last used timestamp

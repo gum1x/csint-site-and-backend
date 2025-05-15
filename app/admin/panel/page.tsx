@@ -1,484 +1,322 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import {
-  Plus,
-  LogOut,
-  Trash2,
-  Calendar,
-  Key,
-  Copy,
-  CheckCircle,
-  AlertCircle,
-  Clock,
-  Users,
-  Database,
-  Shield,
-  RefreshCw,
-  Filter,
-  Search,
-} from "lucide-react"
-
+import { useState, useEffect } from "react"
+import { getKeys, deactivateKey } from "../admin/actions"
+import { generateNewKey, generateMultipleKeys } from "../admin/actions"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { generateNewKey, getKeys, deactivateKey } from "../admin/actions"
-
-type ApiKey = {
-  id: string
-  key: string
-  email: string | null
-  plan_type: string
-  created_at: string
-  expires_at: string
-  is_active: boolean
-  last_used: string | null
-  created_by: string
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Clipboard, Download, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function AdminPanel() {
-  const [keys, setKeys] = useState<ApiKey[]>([])
-  const [filteredKeys, setFilteredKeys] = useState<ApiKey[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [newKey, setNewKey] = useState<{ key: string; expiresAt: string } | null>(null)
-  const [planType, setPlanType] = useState("standard")
+  const [keys, setKeys] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [planType, setPlanType] = useState("basic")
   const [expirationDays, setExpirationDays] = useState(30)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [planFilter, setPlanFilter] = useState("all")
-  const [copiedKey, setCopiedKey] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
-  const router = useRouter()
-
-  // Check if user is authenticated
-  useEffect(() => {
-    // This is a simple check - in a real app, you'd verify with the server
-    // We'll use localStorage to maintain login state
-    const checkAuth = () => {
-      // Store authentication state when coming from login page
-      if (document.referrer.includes("/admin") && !document.referrer.includes("/admin/panel")) {
-        localStorage.setItem("adminAuthenticated", "true")
-      }
-
-      // Check if authenticated
-      const isAuthenticated = localStorage.getItem("adminAuthenticated") === "true"
-
-      if (!isAuthenticated) {
-        router.push("/admin")
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  const fetchKeys = async () => {
-    setIsLoading(true)
-    try {
-      const result = await getKeys()
-      if (result.success) {
-        setKeys(result.keys)
-        setFilteredKeys(result.keys)
-      } else {
-        setError(result.error || "Failed to fetch keys")
-      }
-    } catch (err) {
-      console.error("Error fetching keys:", err)
-      setError("Failed to fetch keys")
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const [generatedKey, setGeneratedKey] = useState(null)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+  const [bulkMode, setBulkMode] = useState(false)
+  const [keyCount, setKeyCount] = useState(10)
+  const [generatedKeys, setGeneratedKeys] = useState([])
+  const [copySuccess, setCopySuccess] = useState(false)
 
   useEffect(() => {
     fetchKeys()
   }, [])
 
-  useEffect(() => {
-    // Apply filters
-    let result = keys
-
-    // Search filter
-    if (searchTerm) {
-      result = result.filter(
-        (key) =>
-          key.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (key.email && key.email.toLowerCase().includes(searchTerm.toLowerCase())),
-      )
+  const fetchKeys = async () => {
+    setLoading(true)
+    const result = await getKeys()
+    if (result.success) {
+      setKeys(result.keys)
+    } else {
+      setError("Failed to fetch keys")
     }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      result = result.filter((key) => (statusFilter === "active" ? key.is_active : !key.is_active))
-    }
-
-    // Plan filter
-    if (planFilter !== "all") {
-      result = result.filter((key) => key.plan_type === planFilter)
-    }
-
-    setFilteredKeys(result)
-  }, [keys, searchTerm, statusFilter, planFilter])
+    setLoading(false)
+  }
 
   const handleGenerateKey = async () => {
-    try {
-      setIsGenerating(true)
-      const result = await generateNewKey(planType, expirationDays)
+    setError(null)
+    setSuccess(null)
+    setGeneratedKey(null)
 
+    if (bulkMode) {
+      // Generate multiple keys
+      const result = await generateMultipleKeys(planType, Number.parseInt(expirationDays), Number.parseInt(keyCount))
       if (result.success) {
-        setNewKey({
-          key: result.key,
-          expiresAt: result.expiresAt,
-        })
+        setGeneratedKeys(result.keys)
+        setSuccess(`Successfully generated ${result.count} keys`)
+        fetchKeys()
+      } else {
+        setError(result.error || "Failed to generate keys")
+      }
+    } else {
+      // Generate a single key
+      const result = await generateNewKey(planType, Number.parseInt(expirationDays))
+      if (result.success) {
+        setGeneratedKey(result.key)
+        setSuccess("Key generated successfully")
         fetchKeys()
       } else {
         setError(result.error || "Failed to generate key")
       }
-    } catch (err) {
-      console.error("Error generating key:", err)
-      setError("Failed to generate key")
-    } finally {
-      setIsGenerating(false)
     }
   }
 
-  const handleDeactivateKey = async (id: string) => {
-    try {
-      const result = await deactivateKey(id)
-
-      if (result.success) {
-        fetchKeys()
-      } else {
-        setError(result.error || "Failed to deactivate key")
-      }
-    } catch (err) {
-      console.error("Error deactivating key:", err)
-      setError("Failed to deactivate key")
+  const handleDeactivateKey = async (id) => {
+    setError(null)
+    const result = await deactivateKey(id)
+    if (result.success) {
+      setSuccess("Key deactivated successfully")
+      fetchKeys()
+    } else {
+      setError(result.error || "Failed to deactivate key")
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminAuthenticated")
-    router.push("/admin")
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    setCopySuccess(true)
+    setTimeout(() => setCopySuccess(false), 2000)
   }
 
-  const copyToClipboard = (key: string) => {
-    navigator.clipboard.writeText(key)
-    setCopiedKey(key)
-    setTimeout(() => setCopiedKey(""), 2000)
+  const copyAllKeys = () => {
+    const keysText = generatedKeys.map((k) => k.key).join("\n")
+    navigator.clipboard.writeText(keysText)
+    setCopySuccess(true)
+    setTimeout(() => setCopySuccess(false), 2000)
   }
 
-  const formatDate = (dateString: string) => {
+  const downloadKeysAsCSV = () => {
+    const keysCSV = generatedKeys.map((k) => k.key).join("\n")
+    const blob = new Blob([keysCSV], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `api_keys_${new Date().toISOString().split("T")[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A"
     return new Date(dateString).toLocaleString()
   }
 
-  const getKeyStatus = (key: ApiKey) => {
+  const getKeyStatus = (key) => {
     if (!key.is_active) return "inactive"
-    const now = new Date()
-    const expiresAt = new Date(key.expires_at)
-    if (expiresAt < now) return "expired"
+    if (!key.email) return "unused"
+    if (key.redeemed_at && new Date(key.expires_at) < new Date()) return "expired"
     return "active"
   }
 
-  const getActiveKeysCount = () => {
-    return keys.filter((key) => key.is_active).length
-  }
-
-  const getExpiredKeysCount = () => {
-    const now = new Date()
-    return keys.filter((key) => key.is_active && new Date(key.expires_at) < now).length
-  }
-
-  const getAssignedKeysCount = () => {
-    return keys.filter((key) => key.email).length
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "active":
+        return <Badge className="bg-green-500">Active</Badge>
+      case "inactive":
+        return <Badge className="bg-red-500">Inactive</Badge>
+      case "unused":
+        return <Badge className="bg-blue-500">Unused</Badge>
+      case "expired":
+        return <Badge className="bg-gray-500">Expired</Badge>
+      default:
+        return <Badge>Unknown</Badge>
+    }
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-gray-800 bg-black/90 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-emerald-400" />
-            <span className="text-xl font-bold">Csint Network Admin</span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </header>
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-6">Admin Panel</h1>
 
-      <div className="container mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/30 border border-red-800 rounded-md text-red-200 text-sm">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              {error}
-            </div>
-          </div>
-        )}
+      <Tabs defaultValue="generate">
+        <TabsList className="mb-4">
+          <TabsTrigger value="generate">Generate Keys</TabsTrigger>
+          <TabsTrigger value="manage">Manage Keys</TabsTrigger>
+        </TabsList>
 
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center">
-                <Key className="h-5 w-5 mr-2 text-emerald-400" />
-                Active Keys
-              </CardTitle>
+        <TabsContent value="generate">
+          <Card>
+            <CardHeader>
+              <CardTitle>Generate API Keys</CardTitle>
+              <CardDescription>Create new API keys for users</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{getActiveKeysCount()}</div>
-              <p className="text-sm text-gray-400 mt-1">Total active keys</p>
-            </CardContent>
-          </Card>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="bulkMode" className="flex items-center space-x-2">
+                  <input
+                    id="bulkMode"
+                    type="checkbox"
+                    checked={bulkMode}
+                    onChange={() => setBulkMode(!bulkMode)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span>Bulk Generation Mode</span>
+                </Label>
+              </div>
 
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center">
-                <Users className="h-5 w-5 mr-2 text-cyan-400" />
-                Assigned Keys
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{getAssignedKeysCount()}</div>
-              <p className="text-sm text-gray-400 mt-1">Keys linked to users</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-red-400" />
-                Expired Keys
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{getExpiredKeysCount()}</div>
-              <p className="text-sm text-gray-400 mt-1">Keys past expiration date</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="keys" className="w-full">
-          <TabsList className="bg-gray-900 border-gray-800 mb-6">
-            <TabsTrigger value="keys" className="data-[state=active]:bg-gray-800">
-              <Key className="h-4 w-4 mr-2" />
-              Keys
-            </TabsTrigger>
-            <TabsTrigger value="generate" className="data-[state=active]:bg-gray-800">
-              <Plus className="h-4 w-4 mr-2" />
-              Generate Key
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="keys" className="mt-0">
-            <div className="bg-gray-900 rounded-xl p-6 shadow-xl border border-gray-800">
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              {bulkMode && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="keyCount">Number of Keys</Label>
                     <Input
-                      placeholder="Search by key or email..."
-                      className="border-gray-700 bg-gray-800 pl-10 text-white placeholder:text-gray-500"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      id="keyCount"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={keyCount}
+                      onChange={(e) => setKeyCount(e.target.value)}
                     />
+                    <p className="text-xs text-gray-500">Maximum 100 keys at once</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[130px] border-gray-700 bg-gray-800 text-white">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+              )}
 
-                  <Select value={planFilter} onValueChange={setPlanFilter}>
-                    <SelectTrigger className="w-[130px] border-gray-700 bg-gray-800 text-white">
-                      <Database className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Plan" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="planType">Plan Type</Label>
+                  <Select value={planType} onValueChange={setPlanType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select plan type" />
                     </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
-                      <SelectItem value="all">All Plans</SelectItem>
+                    <SelectContent>
                       <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="pro">Pro</SelectItem>
                       <SelectItem value="enterprise">Enterprise</SelectItem>
                     </SelectContent>
                   </Select>
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
-                    onClick={fetchKeys}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expirationDays">Expiration (days)</Label>
+                  <Input
+                    id="expirationDays"
+                    type="number"
+                    min="1"
+                    value={expirationDays}
+                    onChange={(e) => setExpirationDays(e.target.value)}
+                  />
                 </div>
               </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleGenerateKey}>Generate {bulkMode ? `${keyCount} Keys` : "Key"}</Button>
+            </CardFooter>
+          </Card>
 
-              {isLoading ? (
-                <div className="text-center py-12">
-                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-emerald-500 mb-4" />
-                  <p className="text-gray-400">Loading keys...</p>
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mt-4 bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <AlertTitle className="text-green-700">Success</AlertTitle>
+              <AlertDescription className="text-green-600">{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {generatedKey && (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Generated API Key</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-2 bg-gray-100 rounded">
+                  <code className="text-sm font-mono">{generatedKey}</code>
+                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(generatedKey)}>
+                    <Clipboard className="h-4 w-4" />
+                    <span className="ml-1">{copySuccess ? "Copied!" : "Copy"}</span>
+                  </Button>
                 </div>
-              ) : filteredKeys.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg border border-gray-800">
-                  <Database className="h-12 w-12 mx-auto text-gray-600 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-300">No keys found</h3>
-                  <p className="text-gray-500 mt-2">
-                    {searchTerm || statusFilter !== "all" || planFilter !== "all"
-                      ? "Try adjusting your filters"
-                      : "Generate your first key to get started"}
-                  </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {bulkMode && generatedKeys.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Generated API Keys</CardTitle>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={copyAllKeys}>
+                    <Clipboard className="h-4 w-4 mr-1" />
+                    {copySuccess ? "Copied!" : "Copy All"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={downloadKeysAsCSV}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Download CSV
+                  </Button>
                 </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {generatedKeys.map((keyObj, index) => (
+                      <div key={keyObj.id} className="flex items-center justify-between p-2 bg-gray-100 rounded">
+                        <code className="text-sm font-mono">{keyObj.key}</code>
+                        <span className="text-xs text-gray-500">#{index + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="manage">
+          <Card>
+            <CardHeader>
+              <CardTitle>Manage API Keys</CardTitle>
+              <CardDescription>View and manage existing API keys</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p>Loading keys...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-800">
-                        <th className="text-left py-3 px-4">Key</th>
-                        <th className="text-left py-3 px-4">Plan</th>
-                        <th className="text-left py-3 px-4">Email</th>
-                        <th className="text-left py-3 px-4">Created</th>
-                        <th className="text-left py-3 px-4">Expires</th>
-                        <th className="text-left py-3 px-4">Status</th>
-                        <th className="text-left py-3 px-4">Actions</th>
+                      <tr className="bg-gray-100">
+                        <th className="p-2 text-left">Key</th>
+                        <th className="p-2 text-left">Plan</th>
+                        <th className="p-2 text-left">Status</th>
+                        <th className="p-2 text-left">Email</th>
+                        <th className="p-2 text-left">Created</th>
+                        <th className="p-2 text-left">Expires</th>
+                        <th className="p-2 text-left">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredKeys.map((key) => (
-                        <tr key={key.id} className="border-b border-gray-800 hover:bg-gray-800/30">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <div className="font-mono text-sm truncate max-w-[180px]">{key.key}</div>
-                              <button
-                                onClick={() => copyToClipboard(key.key)}
-                                className="ml-2 text-gray-400 hover:text-white"
-                                aria-label="Copy key"
-                              >
-                                {copiedKey === key.key ? (
-                                  <CheckCircle className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
+                      {keys.map((key) => (
+                        <tr key={key.id} className="border-t">
+                          <td className="p-2 font-mono text-sm">{key.key.substring(0, 12)}...</td>
+                          <td className="p-2">{key.plan_type}</td>
+                          <td className="p-2">{getStatusBadge(getKeyStatus(key))}</td>
+                          <td className="p-2">{key.email || "Not assigned"}</td>
+                          <td className="p-2">{formatDate(key.created_at)}</td>
+                          <td className="p-2">
+                            {key.redeemed_at
+                              ? formatDate(key.expires_at)
+                              : `${key.duration_days} days after activation`}
                           </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                key.plan_type === "premium"
-                                  ? "bg-purple-900/50 text-purple-300"
-                                  : key.plan_type === "enterprise"
-                                    ? "bg-blue-900/50 text-blue-300"
-                                    : key.plan_type === "standard"
-                                      ? "bg-emerald-900/50 text-emerald-300"
-                                      : "bg-gray-800 text-gray-300"
-                              }`}
-                            >
-                              {key.plan_type}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            {key.email ? (
-                              <div className="text-sm truncate max-w-[180px]">{key.email}</div>
-                            ) : (
-                              <span className="text-gray-500 text-sm">Not assigned</span>
+                          <td className="p-2">
+                            {key.is_active && (
+                              <Button variant="destructive" size="sm" onClick={() => handleDeactivateKey(key.id)}>
+                                Deactivate
+                              </Button>
                             )}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-400">{formatDate(key.created_at)}</td>
-                          <td className="py-3 px-4 text-sm">
-                            <div className="flex items-center">
-                              <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                              {formatDate(key.expires_at)}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                getKeyStatus(key) === "active"
-                                  ? "bg-green-900/50 text-green-300"
-                                  : getKeyStatus(key) === "expired"
-                                    ? "bg-yellow-900/50 text-yellow-300"
-                                    : "bg-red-900/50 text-red-300"
-                              }`}
-                            >
-                              {getKeyStatus(key) === "active"
-                                ? "Active"
-                                : getKeyStatus(key) === "expired"
-                                  ? "Expired"
-                                  : "Inactive"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                                  disabled={!key.is_active}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="bg-gray-900 border-gray-700 text-white">
-                                <DialogHeader>
-                                  <DialogTitle>Deactivate Key</DialogTitle>
-                                  <DialogDescription className="text-gray-400">
-                                    Are you sure you want to deactivate this key? This action cannot be undone.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="bg-gray-800 p-4 rounded-md my-4 font-mono text-sm break-all">
-                                  {key.key}
-                                </div>
-                                {key.email && (
-                                  <div className="text-sm text-gray-400 mb-4">
-                                    This key is assigned to <span className="text-white">{key.email}</span>
-                                  </div>
-                                )}
-                                <DialogFooter>
-                                  <Button
-                                    variant="outline"
-                                    className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
-                                    onClick={() => {}}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    className="bg-red-600 hover:bg-red-700"
-                                    onClick={() => handleDeactivateKey(key.id)}
-                                  >
-                                    Deactivate
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
                           </td>
                         </tr>
                       ))}
@@ -486,114 +324,10 @@ export default function AdminPanel() {
                   </table>
                 </div>
               )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="generate" className="mt-0">
-            <div className="bg-gray-900 rounded-xl p-6 shadow-xl border border-gray-800">
-              <h2 className="text-xl font-semibold mb-6 flex items-center">
-                <Plus className="h-5 w-5 mr-2 text-emerald-400" />
-                Generate New Key
-              </h2>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="plan-type">Plan Type</Label>
-                    <Select value={planType} onValueChange={setPlanType}>
-                      <SelectTrigger className="border-gray-700 bg-gray-800 text-white">
-                        <SelectValue placeholder="Select plan type" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700 text-white">
-                        <SelectItem value="basic">Basic</SelectItem>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="enterprise">Enterprise</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-gray-500">Select the plan type for this key</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="expiration">Expiration (days)</Label>
-                    <Input
-                      id="expiration"
-                      type="number"
-                      min="1"
-                      max="365"
-                      value={expirationDays}
-                      onChange={(e) => setExpirationDays(Number.parseInt(e.target.value))}
-                      className="border-gray-700 bg-gray-800 text-white"
-                    />
-                    <p className="text-xs text-gray-500">Number of days until the key expires</p>
-                  </div>
-
-                  <Button
-                    className="w-full bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700"
-                    onClick={handleGenerateKey}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Generate New Key
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                <div>
-                  {newKey ? (
-                    <div className="p-6 bg-gray-800 rounded-lg border border-gray-700">
-                      <h3 className="font-semibold text-emerald-300 mb-4 flex items-center">
-                        <CheckCircle className="h-5 w-5 mr-2" />
-                        New Key Generated
-                      </h3>
-                      <div className="bg-black p-4 rounded-md mb-4 font-mono text-sm break-all relative group">
-                        {newKey.key}
-                        <button
-                          onClick={() => copyToClipboard(newKey.key)}
-                          className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                          aria-label="Copy key"
-                        >
-                          {copiedKey === newKey.key ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-400 mb-4">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        <span>Expires: {formatDate(newKey.expiresAt)}</span>
-                      </div>
-                      <div className="bg-yellow-900/30 border border-yellow-800 rounded-md p-3 text-yellow-200 text-sm">
-                        <AlertCircle className="h-4 w-4 inline-block mr-2" />
-                        Copy this key now. For security reasons, you won't be able to see it again!
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center p-6 bg-gray-800/50 rounded-lg border border-gray-700">
-                      <div className="text-center">
-                        <Key className="h-12 w-12 mx-auto text-gray-600 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-300">No key generated yet</h3>
-                        <p className="text-gray-500 mt-2 max-w-xs mx-auto">
-                          Fill out the form and click "Generate New Key" to create a key
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
