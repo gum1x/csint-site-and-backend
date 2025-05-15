@@ -94,10 +94,12 @@ export async function POST(request: NextRequest) {
     const apiLimit = PLAN_API_LIMITS[planType as keyof typeof PLAN_API_LIMITS] || 500
 
     // Check if the user has a record in search_count
+    const today = new Date().toISOString().split("T")[0]
     const { data: searchCount } = await supabaseAdmin
       .from("search_count")
       .select("*")
       .eq("email", session.email)
+      .eq("date", today)
       .single()
 
     // If user has search count record, check if they've exceeded their limit
@@ -204,6 +206,7 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq("email", session.email)
+          .eq("date", today)
       } else {
         // Create new record
         await supabaseAdmin.from("search_count").insert({
@@ -212,6 +215,7 @@ export async function POST(request: NextRequest) {
           api_call_count: 1,
           search_limit: searchLimit,
           api_call_limit: apiLimit,
+          date: today,
         })
       }
     } catch (error) {

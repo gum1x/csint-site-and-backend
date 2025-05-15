@@ -34,9 +34,10 @@ const SEARCH_TYPES = [
 
 interface SearchToolProps {
   planType?: string
+  updateUsageData?: (data: any) => void
 }
 
-export function SearchTool({ planType = "standard" }: SearchToolProps) {
+export function SearchTool({ planType = "standard", updateUsageData }: SearchToolProps) {
   const [searchType, setSearchType] = useState("email")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any>(null)
@@ -154,6 +155,33 @@ export function SearchTool({ planType = "standard" }: SearchToolProps) {
       setResults(data)
       setProgress(100)
       setActiveTab("results")
+
+      // After a successful search, add this code to update usage statistics
+      const updateUsageStats = async () => {
+        try {
+          const response = await fetch("/api/usage/stats", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            // Update the usage statistics in your state or context
+            // This depends on how you're storing this data in your application
+            if (typeof updateUsageData === "function") {
+              updateUsageData(data)
+            }
+          }
+        } catch (error) {
+          console.error("Error updating usage stats:", error)
+        }
+      }
+
+      // Call this function after a successful search
+      // Find where you handle the search response and add:
+      updateUsageStats()
     } catch (err: any) {
       console.error("Search error:", err)
       setError(err.message || "An error occurred while searching")

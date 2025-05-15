@@ -1,5 +1,6 @@
 import type React from "react"
 import { SessionProvider } from "@/components/session-provider"
+import { DailyPlanStats } from "@/components/daily-plan-stats"
 
 export default function DashboardLayout({
   children,
@@ -8,7 +9,10 @@ export default function DashboardLayout({
 }) {
   return (
     <SessionProvider>
-      <div className="min-h-screen bg-black">{children}</div>
+      <div className="min-h-screen bg-black">
+        <DailyPlanStats />
+        {children}
+      </div>
     </SessionProvider>
   )
 }
