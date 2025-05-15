@@ -8,19 +8,18 @@ const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, proces
 export async function generateNewKey(planType: string, expirationDays: number) {
   try {
     const key = generateApiKey()
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + expirationDays)
 
-    // We'll store duration_days instead of calculating expiration upfront
-    // expires_at will be calculated when the key is connected to an email
+    // Using the admin client to bypass RLS
     const { data, error } = await supabaseAdmin
       .from("api_keys")
       .insert({
         key,
         plan_type: planType,
-        duration_days: expirationDays,
+        expires_at: expiresAt.toISOString(),
         is_active: true,
         created_by: "admin", // Required field
-        // Set a placeholder expiration date (will be updated on redemption)
-        expires_at: new Date(2099, 0, 1).toISOString(),
       })
       .select()
       .single()
@@ -33,55 +32,12 @@ export async function generateNewKey(planType: string, expirationDays: number) {
     return {
       success: true,
       key,
-      duration_days: expirationDays,
+      expiresAt: expiresAt.toISOString(),
       id: data.id,
     }
   } catch (error) {
     console.error("Generate key error:", error)
     return { success: false, error: "Failed to generate key" }
-  }
-}
-
-export async function generateMultipleKeys(planType: string, expirationDays: number, count: number) {
-  try {
-    // Limit the number of keys that can be generated at once
-    const actualCount = Math.min(count, 100)
-
-    const keys = []
-    const keysToInsert = []
-
-    // Generate the specified number of keys
-    for (let i = 0; i < actualCount; i++) {
-      const key = generateApiKey()
-      keys.push(key)
-
-      keysToInsert.push({
-        key,
-        plan_type: planType,
-        duration_days: expirationDays,
-        is_active: true,
-        created_by: "admin",
-        // Set a placeholder expiration date (will be updated on redemption)
-        expires_at: new Date(2099, 0, 1).toISOString(),
-      })
-    }
-
-    // Insert all keys in a single batch operation
-    const { data, error } = await supabaseAdmin.from("api_keys").insert(keysToInsert).select("id, key")
-
-    if (error) {
-      console.error("Error generating multiple keys:", error)
-      return { success: false, error: "Failed to generate keys" }
-    }
-
-    return {
-      success: true,
-      keys: data,
-      count: data.length,
-    }
-  } catch (error) {
-    console.error("Generate multiple keys error:", error)
-    return { success: false, error: "Failed to generate keys" }
   }
 }
 

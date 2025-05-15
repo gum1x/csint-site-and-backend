@@ -91,12 +91,8 @@ export default async function Dashboard() {
 
     // Inside the Dashboard component, add this helper function:
     const formatKeyValidity = (key: any) => {
-      if (!key.email) {
-        return `Will be valid for ${key.duration_days || 30} days after first use`
-      }
-
-      if (key.email && !key.redeemed_at) {
-        return `Ready to be activated with your email`
+      if (!key.redeemed_at) {
+        return `Valid for ${key.duration_days || 30} days after first use`
       }
 
       // If already redeemed, show the expiration date
