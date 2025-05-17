@@ -1,3 +1,5 @@
+"use client"
+
 import { Badge } from "@/components/ui/badge"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -6,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { KeyIcon, SearchIcon, UserIcon, TerminalIcon, LogOutIcon, BarChartIcon } from "lucide-react"
+import Link from "next/link"
 import { createClient } from "@supabase/supabase-js"
+import { useEffect, useState } from "react"
 
 // Define search limits by plan type
 const PLAN_SEARCH_LIMITS = {
@@ -88,7 +92,50 @@ export default async function Dashboard() {
       api_call_limit: apiLimit,
     }
 
-    // Helper function to format key validity
+    const [usageData, setUsageData] = useState(searchStats)
+    const [isLoading, setIsLoading] = useState(false)
+    const [fetchError, setFetchError] = useState<string | null>(null)
+
+    const fetchUsageData = async () => {
+      setIsLoading(true)
+      try {
+        // Fetch the latest usage data
+        const response = await fetch("/api/usage/stats", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch usage data")
+        }
+
+        const data = await response.json()
+        setUsageData(data)
+      } catch (error) {
+        console.error("Error fetching usage data:", error)
+        setFetchError("Failed to load usage statistics")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    // Add this near other useEffect hooks
+    useEffect(() => {
+      // Refresh the usage data immediately on component mount
+      fetchUsageData()
+
+      // Set up real-time updates for usage statistics
+      const intervalId = setInterval(() => {
+        // Refresh the usage data
+        fetchUsageData()
+      }, 30000) // Update every 30 seconds
+
+      return () => clearInterval(intervalId) // Clean up on unmount
+    }, [])
+
+    // Inside the Dashboard component, add this helper function:
     const formatKeyValidity = (key: any) => {
       if (!key.redeemed_at) {
         return `Valid for ${key.duration_days || 30} days after first use`
@@ -191,14 +238,14 @@ export default async function Dashboard() {
                       <div className="flex justify-between items-center text-sm">
                         <span>Searches</span>
                         <span className="font-mono">
-                          {searchStats.search_count}/{searchLimit}
+                          {usageData.search_count}/{searchLimit}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-cyan-600"
                           style={{
-                            width: `${Math.min(100, (searchStats.search_count / searchLimit) * 100)}%`,
+                            width: `${Math.min(100, (usageData.search_count / searchLimit) * 100)}%`,
                           }}
                         ></div>
                       </div>
@@ -208,18 +255,20 @@ export default async function Dashboard() {
                       <div className="flex justify-between items-center text-sm">
                         <span>API Calls</span>
                         <span className="font-mono">
-                          {searchStats.api_call_count}/{apiLimit}
+                          {usageData.api_call_count}/{apiLimit}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-cyan-600"
                           style={{
-                            width: `${Math.min(100, (searchStats.api_call_count / apiLimit) * 100)}%`,
+                            width: `${Math.min(100, (usageData.api_call_count / apiLimit) * 100)}%`,
                           }}
                         ></div>
                       </div>
                     </div>
+
+                    {/* Remove the 'View All Data' option */}
                   </div>
                 </CardContent>
               </Card>
@@ -252,7 +301,14 @@ export default async function Dashboard() {
                         <CardTitle>No Active API Key</CardTitle>
                         <CardDescription>You need an active API key to use the search tool</CardDescription>
                       </CardHeader>
-                      <CardContent></CardContent>
+                      <CardContent>
+                        <Button
+                          asChild
+                          className="bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700"
+                        >
+                          <Link href="?tab=api-keys">Get API Key</Link>
+                        </Button>
+                      </CardContent>
                     </Card>
                   )}
                 </TabsContent>
@@ -291,6 +347,15 @@ export default async function Dashboard() {
                               {new Date(session.expires_at).toLocaleString()}
                             </div>
                           </div>
+                        </div>
+
+                        <div className="pt-4 flex flex-col md:flex-row gap-4">
+                          <Button variant="outline" className="border-gray-700 hover:bg-gray-800">
+                            Update Profile
+                          </Button>
+                          <Button variant="outline" className="border-gray-700 hover:bg-gray-800">
+                            Change Password
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -363,6 +428,14 @@ export default async function Dashboard() {
                               </div>
                             </div>
                           </div>
+
+                          <div className="flex flex-col md:flex-row gap-4">
+                            <Button variant="outline" className="border-gray-700 hover:bg-gray-800">
+                              <KeyIcon className="h-4 w-4 mr-2" />
+                              Manage Keys
+                            </Button>
+                            <Button variant="destructive">Request New Key</Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-6">
@@ -373,6 +446,15 @@ export default async function Dashboard() {
                               You don't have any active API keys. Contact your administrator or request a new key to
                               access CSINT Network services.
                             </p>
+                          </div>
+
+                          <div className="flex justify-center">
+                            <Button
+                              asChild
+                              className="bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700"
+                            >
+                              <Link href="/admin">Request API Key</Link>
+                            </Button>
                           </div>
                         </div>
                       )}

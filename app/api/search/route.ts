@@ -1,4 +1,3 @@
-import axios from "axios"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyUserSession } from "@/lib/auth"
@@ -160,20 +159,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Make request to OsintDog API using axios
-    const osintDogResponse = await axios.post(
-      "https://osintdog.com/search/api/search",
-      { field: [{ [sanitizedType]: validatedQuery }] },
-      {
-        headers: {
-          "X-API-Key": process.env.OSINTDOG_KEY || "",
-          "Content-Type": "application/json",
-        },
-        timeout: 30000,
+    // Make request to OsintDog API
+    const osintDogResponse = await fetch("https://osintdog.com/search/api/search", {
+      method: "POST",
+      headers: {
+        "X-API-Key": process.env.OSINTDOG_KEY || "",
+        "Content-Type": "application/json",
       },
-    )
+      body: JSON.stringify({ field: [{ [sanitizedType]: validatedQuery }] }),
+    })
 
-    if (osintDogResponse.status !== 200) {
+    if (!osintDogResponse.ok) {
       console.log("Search API: Error from search provider:", osintDogResponse.statusText)
       return NextResponse.json(
         {
@@ -183,7 +179,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = osintDogResponse.data
+    const data = await osintDogResponse.json()
 
     // Clean the data
     const cleanedData = cleanData(data)
@@ -229,7 +225,7 @@ export async function POST(request: NextRequest) {
 
     // Set response headers for additional security
     const response = NextResponse.json({
-      credits: "t.me/csintnetwork",
+      credits: "CSINT Network",
       scan_type: sanitizedType,
       query: validatedQuery,
       timestamp: new Date().toISOString(),
