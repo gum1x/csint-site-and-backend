@@ -67,8 +67,7 @@ export function PdfDownloadButton({ searchType, searchQuery, disabled = false }:
 
         toast({
           title: "Success",
-          description: "Enhanced PDF report has been downloaded with custom styling and watermark.",
-          variant: "default",
+          description: "PDF report has been downloaded.",
         })
       } else {
         throw new Error("Unexpected response format")
@@ -91,7 +90,7 @@ export function PdfDownloadButton({ searchType, searchQuery, disabled = false }:
       disabled={disabled || isLoading || !searchType || !searchQuery}
       variant="outline"
       size="sm"
-      className="ml-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700"
+      className="ml-2"
     >
       {isLoading ? (
         <>
@@ -101,7 +100,7 @@ export function PdfDownloadButton({ searchType, searchQuery, disabled = false }:
       ) : (
         <>
           <FileDown className="mr-2 h-4 w-4" />
-          Styled PDF
+          PDF Report
         </>
       )}
     </Button>
