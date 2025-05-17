@@ -3,8 +3,27 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { generateSecurityScript } from "@/lib/security"
+import { FontOptimizer } from "@/components/font-optimizer"
 
-const inter = Inter({ subsets: ["latin"], display: "swap" })
+// Optimize font loading with proper configuration
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+  fallback: [
+    "system-ui",
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Segoe UI",
+    "Roboto",
+    "Helvetica Neue",
+    "Arial",
+    "sans-serif",
+  ],
+  variable: "--font-inter",
+  preload: true,
+  adjustFontFallback: true, // Optimize font metrics
+})
 
 export const metadata: Metadata = {
   title: "Csint Network - Cyber Security Intelligence Tools",
@@ -51,12 +70,79 @@ export default function RootLayout({
   const securityScript = generateSecurityScript()
 
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className={`scroll-smooth ${inter.variable}`}>
       <head>
+        {/* Preconnect to Google Fonts to improve loading performance */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+
+        {/* Add font-display CSS to prevent layout shifts */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+          @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: local('Inter Regular'), local('Inter-Regular');
+          }
+          @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+            src: local('Inter Medium'), local('Inter-Medium');
+          }
+          @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 600;
+            font-display: swap;
+            src: local('Inter SemiBold'), local('Inter-SemiBold');
+          }
+          @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: local('Inter Bold'), local('Inter-Bold');
+          }
+          
+          /* Font smoothing */
+          html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+          }
+          
+          /* OS-specific optimizations */
+          .font-mac {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+          }
+          
+          .font-windows {
+            -webkit-font-smoothing: subpixel-antialiased;
+          }
+          
+          /* High DPI screens */
+          .high-dpi {
+            font-synthesis: none;
+          }
+          
+          /* Prevent layout shifts when fonts load */
+          html:not(.fonts-loaded) * {
+            letter-spacing: -0.005em;
+          }
+        `,
+          }}
+        />
+
         {/* Security meta tags */}
         <meta
           httpEquiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none';"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none';"
         />
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
         <meta httpEquiv="X-Frame-Options" content="DENY" />
@@ -67,7 +153,10 @@ export default function RootLayout({
         {/* Anti-debugging script */}
         <script dangerouslySetInnerHTML={{ __html: securityScript }} />
       </head>
-      <body className={`${inter.className} antialiased`}>{children}</body>
+      <body className={`${inter.className} font-sans antialiased`}>
+        <FontOptimizer />
+        {children}
+      </body>
     </html>
   )
 }
